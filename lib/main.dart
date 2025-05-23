@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_logs/flutter_logs.dart';
 import 'package:localstorage/localstorage.dart';
@@ -17,21 +18,23 @@ import 'pages/home.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await FlutterLogs.initLogs(
-    logLevelsEnabled: [
-      LogLevel.INFO,
-      LogLevel.WARNING,
-      LogLevel.ERROR,
-      LogLevel.SEVERE,
-    ],
-    logFileExtension: LogFileExtension.LOG,
-    timeStampFormat: TimeStampFormat.TIME_FORMAT_READABLE,
-    directoryStructure: DirectoryStructure.FOR_DATE,
-    logTypesEnabled: ['network', 'database', 'ui'],
-    autoClearLogs: true,
-    zipsRetentionPeriodInDays: 7,
-    isDebuggable: true, // Set to false in release builds
-  );
+  if (!kIsWeb) {
+    await FlutterLogs.initLogs(
+      logLevelsEnabled: [
+        LogLevel.INFO,
+        LogLevel.WARNING,
+        LogLevel.ERROR,
+        LogLevel.SEVERE,
+      ],
+      logFileExtension: LogFileExtension.LOG,
+      timeStampFormat: TimeStampFormat.TIME_FORMAT_READABLE,
+      directoryStructure: DirectoryStructure.FOR_DATE,
+      logTypesEnabled: ['network', 'database', 'ui'],
+      autoClearLogs: true,
+      zipsRetentionPeriodInDays: 7,
+      isDebuggable: true, // Set to false in release builds
+    );
+  }
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initLocalStorage();

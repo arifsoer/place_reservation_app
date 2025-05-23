@@ -6,16 +6,21 @@ import 'package:place_reservation/modules/map_builder/area.model.dart';
 import 'package:place_reservation/modules/map_builder/current_map.model.dart';
 import 'package:place_reservation/modules/map_builder/level.model.dart';
 import 'package:place_reservation/modules/map_builder/map.service.dart';
+import 'package:place_reservation/modules/map_builder/seat-qr.service.dart';
+import 'package:place_reservation/modules/map_builder/seat_qr.model.dart';
 
 class MapController extends ChangeNotifier {
   List<QueryDocumentSnapshot<LevelMap>> docLevels = [];
   List<LevelMap> levels = [];
   int? selectedLevel;
 
+  List<QueryDocumentSnapshot<SeatQR>> _docSeatsQR = [];
+  DateTime? _seatQRCreatedAt;
+
   List<QueryDocumentSnapshot<Area>> docAreas = [];
   List<Area> areas = [];
 
-  CurrentMap? currentMap;
+  CurrentMap? _currentMapLib;
 
   DocumentSnapshot<Currentcoordinate>? _currentCoordinatesSnapshot;
 
@@ -34,9 +39,35 @@ class MapController extends ChangeNotifier {
     return null;
   }
 
+  CurrentMap? get currentMap {
+    if (_currentMapLib != null) {
+      return _currentMapLib;
+    }
+    return null;
+  }
+
+  DateTime? get seatQRCreatedAt => _seatQRCreatedAt;
+  bool get isSeatQRCreatedAfterMap =>
+      _docSeatsQR.isNotEmpty &&
+      _docSeatsQR[0].data().createdAt != null &&
+      currentMap != null &&
+      (_docSeatsQR[0].data().createdAt!.isAfter(currentMap!.createdAt) ||
+          _docSeatsQR[0].data().createdAt!.isAtSameMomentAs(
+            currentMap!.createdAt,
+          ));
+  List<SeatQR> get qrSeats => _docSeatsQR.map((doc) => doc.data()).toList();
+
   MapController() {
     // Initialize the controller with some default values or fetch from a service
     dataInitialization();
+  }
+
+  String? getSeatQrId(int seatIndex) {
+    if (_docSeatsQR.isNotEmpty) {
+      var seatQr = _docSeatsQR[seatIndex];
+      return seatQr.id;
+    }
+    return null;
   }
 
   Map<String, String> getAreaArgument(int areaIndex) {
@@ -73,6 +104,12 @@ class MapController extends ChangeNotifier {
     // fetch Currect Coordinates
     _currentCoordinatesSnapshot = await CoordinatesService.getCoordinates();
 
+    // to get Seats QR
+    _docSeatsQR = await SeatQRService.getSeatQr();
+    if (_docSeatsQR.isNotEmpty) {
+      _seatQRCreatedAt = _docSeatsQR[0].data().createdAt;
+    }
+
     isLoading = false;
     isCurrentMapGenerating = true;
     notifyListeners();
@@ -80,13 +117,21 @@ class MapController extends ChangeNotifier {
     getLatestCurrentMap();
   }
 
+  Future<void> getQrSeats() async {
+    _docSeatsQR = await SeatQRService.getSeatQr();
+    if (_docSeatsQR.isNotEmpty) {
+      _seatQRCreatedAt = _docSeatsQR[0].data().createdAt;
+    }
+    notifyListeners();
+  }
+
   Future<void> getLatestCurrentMap() async {
     MapService.getLatestCurrentMap()
         .then((currentMapSnap) {
           if (currentMapSnap != null) {
-            currentMap = currentMapSnap.data();
+            _currentMapLib = currentMapSnap.data();
           } else {
-            currentMap = null;
+            _currentMapLib = null;
           }
           isCurrentMapGenerating = false;
           notifyListeners();
@@ -166,10 +211,22 @@ class MapController extends ChangeNotifier {
     );
     final seat = Seats(seats: seats, createdAt: DateTime.now());
 
+    // generate List of QR Codes
+    for (var seatId in seats) {
+      var seatQr = SeatQR(
+        seatId: seatId,
+        x: currentCoordinates?.x ?? 0,
+        y: currentCoordinates?.y ?? 0,
+        createdAt: DateTime.now(),
+      );
+      await SeatQRService.addSeatQr(seatQr);
+    }
+
     await MapService.setCurrentMap(newCurrentMap);
     await MapService.setCurrentSeats(seat);
 
     await getLatestCurrentMap();
+    await getQrSeats();
     isCurrentMapGenerating = false;
     notifyListeners();
   }
