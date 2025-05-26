@@ -41,4 +41,9 @@ class SeatPlan {
               : null,
     );
   }
+
+  @override
+  String toString() {
+    return 'SeatPlan(seatId: $seatId, userId: $userId, userName: $userName, userEmail: $userEmail, plannedDate: $plannedDate, claimedDate: $claimedDate)';
+  }
 }

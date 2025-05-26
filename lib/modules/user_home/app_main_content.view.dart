@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_logs/flutter_logs.dart';
 import 'package:intl/intl.dart';
 import 'package:place_reservation/constant.dart';
 import 'package:place_reservation/modules/auth/auth.controller.dart';
@@ -8,6 +9,13 @@ import 'package:place_reservation/modules/user_home/add_plan_dialog_form.view.da
 import 'package:place_reservation/modules/user_home/user_home.controller.dart';
 import 'package:provider/provider.dart';
 
+class AppMainUserHomeListener {
+  final bool isLoading;
+  final List<String> seats;
+
+  AppMainUserHomeListener({required this.isLoading, required this.seats});
+}
+
 class AppMainContent extends StatelessWidget {
   const AppMainContent({super.key, required this.user});
 
@@ -15,54 +23,98 @@ class AppMainContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final seats = Provider.of<UserHomeController>(context).curretSeatList;
-
-    return SafeArea(
-      child: Center(
-        child: Column(
+    return Selector<UserHomeController, AppMainUserHomeListener>(
+      selector:
+          (context, controller) => AppMainUserHomeListener(
+            isLoading: controller.isLoading,
+            seats: controller.curretSeatList,
+          ),
+      builder: (context, appMainUserHomeListener, child) {
+        return Stack(
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.shade300,
-                    blurRadius: 5,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(defaultPadding / 2),
-                child: Row(
+            SafeArea(
+              child: Center(
+                child: Column(
                   children: [
-                    Text(
-                      'Welcome! ${user?.displayName}',
-                      style: Theme.of(context).textTheme.titleMedium!,
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade300,
+                            blurRadius: 5,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(defaultPadding / 2),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Welcome! ${user?.displayName}',
+                              style: Theme.of(context).textTheme.titleMedium!,
+                            ),
+                            Spacer(),
+                            IconButton(
+                              onPressed: () async {
+                                await Provider.of<AuthController>(
+                                  context,
+                                  listen: false,
+                                ).signOut();
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  Navigator.pushReplacementNamed(
+                                    context,
+                                    '/login',
+                                  );
+                                });
+                              },
+                              icon: Icon(Icons.logout, size: 20),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    Spacer(),
-                    IconButton(
-                      onPressed: () async {
-                        await Provider.of<AuthController>(
-                          context,
-                          listen: false,
-                        ).signOut();
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          Navigator.pushReplacementNamed(context, '/login');
-                        });
-                      },
-                      icon: Icon(Icons.logout, size: 20),
+                    SizedBox(height: defaultPadding * 0.5),
+                    Expanded(
+                      child: MainContent(seats: appMainUserHomeListener.seats),
                     ),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: defaultPadding * 0.5),
-            Expanded(child: MainContent(seats: seats)),
+            if (appMainUserHomeListener.isLoading)
+              AbsorbPointer(
+                child: SizedBox(
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                    ),
+                    child: Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            defaultPadding * 0.5,
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(defaultPadding * 0.5),
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -74,8 +126,19 @@ class MainContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    void onPlanAdded(SeatPlan plan) {
-      Provider.of<UserHomeController>(context, listen: false).addSeatPlan(plan);
+    void onPlanAdded(SeatPlan plan) async {
+      final result = await Provider.of<UserHomeController>(
+        context,
+        listen: false,
+      ).addSeatPlan(plan);
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message ?? 'Got feedback from process'),
+          ),
+        );
+      });
     }
 
     return Column(
@@ -100,26 +163,77 @@ class MainContent extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, '/qr-scanner');
+                  child: Consumer<UserHomeController>(
+                    builder: (context, controller, child) {
+                      if (controller.todaySeatPlan != null) {
+                        final plan = controller.todaySeatPlan!;
+                        return GestureDetector(
+                          onTap: () async {
+                            var qrResult = await Navigator.pushNamed(
+                              context,
+                              '/qr-scanner',
+                            );
+                            if (qrResult != null) {
+                              FlutterLogs.logInfo(
+                                'MainPage',
+                                'Claim Prosec',
+                                'Claim seat plan with QR code: $qrResult',
+                              );
+                              print(controller);
+                            }
+                          },
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Your Plan for Today',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                Text(
+                                  'Seat ID: ${plan.seatId}',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                Text(
+                                  DateFormat(
+                                    'd MMM yyyy',
+                                  ).format(plan.plannedDate),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text('Tap here to claim seat'),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      return GestureDetector(
+                        onTap: () async {
+                          String? qrResult = await Navigator.pushNamed<String?>(
+                            context,
+                            '/qr-scanner',
+                          );
+                          if (qrResult != null) {
+                            // Handle the QR result if needed
+                          }
+                        },
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'You dont have any plan yet today',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              Text(
+                                'Tap Here to direct claim seat,\nor select below button to other action',
+                                style: Theme.of(context).textTheme.bodySmall,
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     },
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'You dont have any plan yet today',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          Text(
-                            'Tap Here to direct claim seat,\nor select below button to other action',
-                            style: Theme.of(context).textTheme.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
                 OverflowBar(

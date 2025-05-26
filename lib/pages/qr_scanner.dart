@@ -76,16 +76,19 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   void _toHandleQrScan(Barcode scanData) {
     try {
-      var encodedData = jsonDecode(scanData.code!) as Map<String, dynamic>;
-      if (encodedData.containsKey('seatId') &&
-          encodedData.containsKey('x') &&
-          encodedData.containsKey('y')) {
+      var encodedData = scanData.code;
+      FlutterLogs.logInfo(
+        'QRScanner',
+        'QR code scanned',
+        'Scann successful: ${scanData.code}',
+      );
+      if (encodedData != null) {
         FlutterLogs.logInfo(
           'QRScanner',
           'QR code scanned',
           'Scann successful: ${scanData.code}',
         );
-        Navigator.pop(context);
+        Navigator.pop(context, {'data': encodedData});
       } else {
         FlutterLogs.logWarn(
           'QRScanner',

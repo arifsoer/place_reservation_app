@@ -14,16 +14,30 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class AppMainPage extends StatelessWidget {
+class AppMainPage extends StatefulWidget {
   const AppMainPage({super.key});
+
+  @override
+  State<AppMainPage> createState() => _AppMainPageState();
+}
+
+class _AppMainPageState extends State<AppMainPage> {
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<UserHomeController>(
+        context,
+        listen: false,
+      ).dataInitialization();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<AuthController>(context).user;
-    return ChangeNotifierProvider(
-      create: (context) => UserHomeController(),
-      child: Scaffold(body: AppMainContent(user: user)),
-    );
+    return Scaffold(body: AppMainContent(user: user));
   }
 }
 

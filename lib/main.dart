@@ -5,6 +5,7 @@ import 'package:flutter_logs/flutter_logs.dart';
 import 'package:localstorage/localstorage.dart';
 import 'package:place_reservation/firebase_options.dart';
 import 'package:place_reservation/modules/auth/auth.controller.dart';
+import 'package:place_reservation/modules/user_home/user_home.controller.dart';
 import 'package:place_reservation/pages/area_builder.dart';
 import 'package:place_reservation/pages/coordinate_config.dart';
 import 'package:place_reservation/pages/login.dart';
@@ -46,8 +47,11 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => AuthController(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => AuthController()),
+        ChangeNotifierProvider(create: (context) => UserHomeController()),
+      ],
       child: MaterialApp(
         theme: defaultTheme,
         initialRoute: '/login',

@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:place_reservation/constant.dart';
 import 'package:place_reservation/modules/seat_plan/seat_plan.model.dart';
@@ -14,6 +13,7 @@ final _seatPlanConverter = _seatPlanCollectionRef.withConverter<SeatPlan>(
 class SeatPlanService {
   static Future<void> addSeatPlan(SeatPlan seatPlan) async {
     try {
+      print('Adding new seat plan: $seatPlan');
       await _seatPlanConverter.add(seatPlan);
     } on FirebaseException catch (e) {
       // Handle Firebase-specific errors
@@ -30,17 +30,18 @@ class SeatPlanService {
   static Future<List<QueryDocumentSnapshot<SeatPlan>>>
   getSeatPlansByDateAndSeat(String seatId, DateTime date) async {
     try {
+      final buildDate = DateTime(date.year, date.month, date.day);
       final snapshot =
           await _seatPlanConverter
               .where('seat_id', isEqualTo: seatId)
               .where(
                 'planned_date',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(date),
+                isGreaterThanOrEqualTo: Timestamp.fromDate(buildDate),
               )
               .where(
                 'planned_date',
                 isLessThan: Timestamp.fromDate(
-                  date.add(const Duration(days: 1)),
+                  buildDate.add(const Duration(days: 1)),
                 ),
               )
               .where('claimed_date', isNull: true)
@@ -61,12 +62,13 @@ class SeatPlanService {
   static Future<List<QueryDocumentSnapshot<SeatPlan>>>
   getUpcomingSeatPlansByUser(String userId, DateTime todayDate) async {
     try {
+      var buildDate = DateTime(todayDate.year, todayDate.month, todayDate.day);
       final snapshot =
           await _seatPlanConverter
               .where('user_id', isEqualTo: userId)
               .where(
                 'planned_date',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(todayDate),
+                isGreaterThanOrEqualTo: Timestamp.fromDate(buildDate),
               )
               .get();
       return snapshot.docs;

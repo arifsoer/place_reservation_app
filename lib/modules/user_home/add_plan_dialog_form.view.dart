@@ -130,11 +130,6 @@ class _AddPlanDialogFormState extends State<AddPlanDialogForm> {
 
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Plan Created Successfully'),
-                            ),
-                          );
                         });
                       }
                     },

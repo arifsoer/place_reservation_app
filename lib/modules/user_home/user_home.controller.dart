@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:place_reservation/modules/map_builder/current_map.model.dart';
@@ -10,17 +11,16 @@ class UserHomeController extends ChangeNotifier {
   final User user = FirebaseAuth.instance.currentUser!;
 
   Seats? _currentSeats;
-  List<SeatPlan>? _upcomingSeatPlan;
+  List<QueryDocumentSnapshot<SeatPlan>>? _upcomingSeatPlan;
+  QueryDocumentSnapshot<SeatPlan>? _todaySeatPlan;
 
   bool isLoading = false;
   bool isFething = false;
 
   List<String> get curretSeatList => _currentSeats?.seats ?? [];
-  List<SeatPlan> get upcomingSeatPlans => _upcomingSeatPlan ?? [];
-
-  UserHomeController() {
-    dataInitialization();
-  }
+  List<SeatPlan> get upcomingSeatPlans =>
+      _upcomingSeatPlan?.map((doc) => doc.data()).toList() ?? [];
+  SeatPlan? get todaySeatPlan => _todaySeatPlan?.data();
 
   Future<void> dataInitialization() async {
     try {
@@ -45,13 +45,30 @@ class UserHomeController extends ChangeNotifier {
       isFething = true;
       notifyListeners();
 
+      DateTime now = DateTime.now();
+      DateTime today = DateTime(now.year, now.month, now.day);
+
       // Fetch the upcoming seat plans
       final seatPlansSnap = await SeatPlanService.getUpcomingSeatPlansByUser(
         user.uid,
         DateTime.now(),
       );
       if (seatPlansSnap.isNotEmpty) {
-        _upcomingSeatPlan = seatPlansSnap.map((doc) => doc.data()).toList();
+        final findToday = seatPlansSnap.where((snap) {
+          final seatPlan = snap.data();
+          final plannedDate = seatPlan.plannedDate;
+          return plannedDate.day == today.day &&
+              plannedDate.month == today.month &&
+              plannedDate.year == today.year;
+        });
+        _todaySeatPlan = findToday.isNotEmpty ? findToday.first : null;
+        _upcomingSeatPlan =
+            seatPlansSnap.where((snap) {
+              if (_todaySeatPlan != null && snap.id == _todaySeatPlan!.id) {
+                return false; // Skip today's plan
+              }
+              return true; // Include other plans
+            }).toList();
       }
     } catch (e) {
       print('Error fetching upcoming seat plans: $e');
@@ -75,7 +92,8 @@ class UserHomeController extends ChangeNotifier {
       if (seatPlanSnap.isNotEmpty) {
         return ControllerResponse(
           statusCode: ResponseStatusCode.validationError,
-          message: 'Seat plan already exists for this date',
+          message:
+              'Seat plan already exists for this date or someone else has plan for this seat.',
         );
       }
 
@@ -92,6 +110,29 @@ class UserHomeController extends ChangeNotifier {
       return ControllerResponse(
         statusCode: ResponseStatusCode.error,
         message: 'Error adding seat plan: $e',
+      );
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<ControllerResponse> toProsessClaimSeatPlan(String seatPlanId) async {
+    try {
+      isLoading = true;
+      notifyListeners();
+
+      await Future.delayed(const Duration(seconds: 5));
+
+      return ControllerResponse(
+        statusCode: ResponseStatusCode.success,
+        message: 'Seat plan claimed successfully',
+      );
+    } catch (e) {
+      print('Error claiming seat plan: $e');
+      return ControllerResponse(
+        statusCode: ResponseStatusCode.error,
+        message: 'Error claiming seat plan: $e',
       );
     } finally {
       isLoading = false;
