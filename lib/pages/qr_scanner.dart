@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,6 +25,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? controller;
   String? qrText;
+  bool isTrigger = false;
 
   @override
   void initState() {
@@ -77,18 +77,23 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
   void _toHandleQrScan(Barcode scanData) {
     try {
       var encodedData = scanData.code;
-      FlutterLogs.logInfo(
-        'QRScanner',
-        'QR code scanned',
-        'Scann successful: ${scanData.code}',
-      );
       if (encodedData != null) {
         FlutterLogs.logInfo(
           'QRScanner',
           'QR code scanned',
           'Scann successful: ${scanData.code}',
         );
-        Navigator.pop(context, {'data': encodedData});
+        if (!isTrigger) {
+          FlutterLogs.logWarn(
+            'QRScanner',
+            'QR code already scanned',
+            'Ignoring duplicate scan',
+          );
+          setState(() {
+            isTrigger = true;
+          });
+          Navigator.pop(context, {'data': encodedData});
+        }
       } else {
         FlutterLogs.logWarn(
           'QRScanner',

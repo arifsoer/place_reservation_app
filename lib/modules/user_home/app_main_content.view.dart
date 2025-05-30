@@ -179,7 +179,12 @@ class MainContent extends StatelessWidget {
                                 'Claim Prosec',
                                 'Claim seat plan with QR code: $qrResult',
                               );
-                              print(controller);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                Provider.of<UserHomeController>(
+                                  context,
+                                  listen: false,
+                                ).toProsessClaimSeatPlan(qrResult.toString());
+                              });
                             }
                           },
                           child: Center(

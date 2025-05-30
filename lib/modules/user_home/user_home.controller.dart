@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:place_reservation/modules/map_builder/current_map.model.dart';
 import 'package:place_reservation/modules/map_builder/map.service.dart';
+import 'package:place_reservation/modules/map_builder/seat-qr.service.dart';
 import 'package:place_reservation/modules/seat_plan/seat_plan.model.dart';
 import 'package:place_reservation/modules/seat_plan/seat_plan.service.dart';
 import 'package:place_reservation/util.dart';
@@ -123,6 +124,9 @@ class UserHomeController extends ChangeNotifier {
       notifyListeners();
 
       await Future.delayed(const Duration(seconds: 5));
+      print('Claiming seat plan with ID: $seatPlanId');
+      // to validate is the seat plan is correct seat plan today
+      final scannedSeatQr = await SeatQRService.getSeatQrById(seatPlanId);
 
       return ControllerResponse(
         statusCode: ResponseStatusCode.success,

@@ -41,4 +41,25 @@ class SeatQRService {
       return [];
     }
   }
+
+  static Future<DocumentSnapshot<SeatQR>?> getSeatQrById(String id) async {
+    try {
+      final doc = await _seatQrConverter.doc(id).get();
+      if (doc.exists) {
+        return doc;
+      } else {
+        debugPrint('No SeatQR found with id: $id');
+        return null;
+      }
+    } on FirebaseException catch (e) {
+      // Handle Firebase-specific errors
+      debugPrint('Firebase error: ${e.message}');
+      rethrow; // Optionally rethrow the error for higher-level handling
+    } catch (e, stackTrace) {
+      // Handle general errors
+      debugPrint('Unexpected error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return null;
+    }
+  }
 }
