@@ -46,4 +46,22 @@ class SeatPlan {
   String toString() {
     return 'SeatPlan(seatId: $seatId, userId: $userId, userName: $userName, userEmail: $userEmail, plannedDate: $plannedDate, claimedDate: $claimedDate)';
   }
+
+  SeatPlan copyWith({
+    String? seatId,
+    String? userId,
+    String? userName,
+    String? userEmail,
+    DateTime? plannedDate,
+    DateTime? claimedDate,
+  }) {
+    return SeatPlan(
+      seatId: seatId ?? this.seatId,
+      userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
+      userEmail: userEmail ?? this.userEmail,
+      plannedDate: plannedDate ?? this.plannedDate,
+      claimedDate: claimedDate ?? this.claimedDate,
+    );
+  }
 }

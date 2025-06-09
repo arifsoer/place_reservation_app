@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_logs/flutter_logs.dart';
 import 'package:intl/intl.dart';
 import 'package:place_reservation/constant.dart';
 import 'package:place_reservation/modules/auth/auth.controller.dart';
@@ -167,26 +166,40 @@ class MainContent extends StatelessWidget {
                     builder: (context, controller, child) {
                       if (controller.todaySeatPlan != null) {
                         final plan = controller.todaySeatPlan!;
+                        final isClaimed = plan.claimedDate != null;
                         return GestureDetector(
-                          onTap: () async {
-                            var qrResult = await Navigator.pushNamed(
-                              context,
-                              '/qr-scanner',
-                            );
-                            if (qrResult != null) {
-                              FlutterLogs.logInfo(
-                                'MainPage',
-                                'Claim Prosec',
-                                'Claim seat plan with QR code: $qrResult',
-                              );
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                Provider.of<UserHomeController>(
-                                  context,
-                                  listen: false,
-                                ).toProsessClaimSeatPlan(qrResult.toString());
-                              });
-                            }
-                          },
+                          onTap:
+                              isClaimed
+                                  ? null
+                                  : () async {
+                                    // mock claim without scanning
+                                    // var qrResult = 'ywbxtkp6et3rbvVLeXGP';
+                                    var qrResult = await Navigator.pushNamed(
+                                      context,
+                                      '/qr-scanner',
+                                    );
+
+                                    final result =
+                                        await Provider.of<UserHomeController>(
+                                          context,
+                                          listen: false,
+                                        ).toProsessClaimSeatPlan(
+                                          qrResult.toString(),
+                                        );
+
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                result.message ?? 'Failed!',
+                                              ),
+                                            ),
+                                          );
+                                        });
+                                  },
                           child: Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -205,7 +218,9 @@ class MainContent extends StatelessWidget {
                                   ).format(plan.plannedDate),
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                                Text('Tap here to claim seat'),
+                                isClaimed
+                                    ? Text("It's Claimed, Enjoy your Day!")
+                                    : Text('Tap here to claim seat'),
                               ],
                             ),
                           ),
@@ -287,9 +302,6 @@ class MainContent extends StatelessWidget {
                 Expanded(
                   child: Consumer<UserHomeController>(
                     builder: (context, controller, child) {
-                      if (controller.isLoading) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
                       if (controller.upcomingSeatPlans.isEmpty) {
                         return Text('No plans available');
                       }

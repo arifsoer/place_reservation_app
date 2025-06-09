@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:place_reservation/modules/map_builder/current_map.model.dart';
 import 'package:place_reservation/modules/map_builder/map.service.dart';
 import 'package:place_reservation/modules/map_builder/seat-qr.service.dart';
+import 'package:place_reservation/modules/seat_claim/seat_claim.dart';
+import 'package:place_reservation/modules/seat_claim/seat_claim.service.dart';
 import 'package:place_reservation/modules/seat_plan/seat_plan.model.dart';
 import 'package:place_reservation/modules/seat_plan/seat_plan.service.dart';
 import 'package:place_reservation/util.dart';
@@ -84,6 +86,29 @@ class UserHomeController extends ChangeNotifier {
       isLoading = true;
       notifyListeners();
 
+      // check the seletected date on the list
+      if (seatPlan.plannedDate.isBefore(DateTime.now())) {
+        return ControllerResponse(
+          statusCode: ResponseStatusCode.validationError,
+          message: 'Selected date cannot be in the past.',
+        );
+      }
+      if (_upcomingSeatPlan != null) {
+        final plannedDateList =
+            _upcomingSeatPlan!.map((plan) => plan.data().plannedDate).toList();
+        final withTodayDate = [
+          if (_todaySeatPlan != null) _todaySeatPlan!.data().plannedDate,
+          ...plannedDateList,
+        ];
+        if (withTodayDate.contains(seatPlan.plannedDate)) {
+          return ControllerResponse(
+            statusCode: ResponseStatusCode.validationError,
+            message:
+                'Seat plan already exists for this date, try another date.',
+          );
+        }
+      }
+
       // plan validation
       final seatPlanSnap = await SeatPlanService.getSeatPlansByDateAndSeat(
         seatPlan.seatId,
@@ -107,7 +132,6 @@ class UserHomeController extends ChangeNotifier {
         message: 'Seat plan added successfully',
       );
     } catch (e) {
-      print('Error adding seat plan: $e');
       return ControllerResponse(
         statusCode: ResponseStatusCode.error,
         message: 'Error adding seat plan: $e',
@@ -123,17 +147,49 @@ class UserHomeController extends ChangeNotifier {
       isLoading = true;
       notifyListeners();
 
-      await Future.delayed(const Duration(seconds: 5));
-      print('Claiming seat plan with ID: $seatPlanId');
       // to validate is the seat plan is correct seat plan today
       final scannedSeatQr = await SeatQRService.getSeatQrById(seatPlanId);
+      if (scannedSeatQr == null) {
+        return ControllerResponse(
+          statusCode: ResponseStatusCode.validationError,
+          message:
+              'No Seat QR found, ensure you have scanned the correct QR code.',
+        );
+      }
+      // to check with today seat plan
+      final scannedData = scannedSeatQr.data();
+      if (_todaySeatPlan == null ||
+          _todaySeatPlan!.data().seatId != scannedData!.seatId) {
+        return ControllerResponse(
+          statusCode: ResponseStatusCode.validationError,
+          message:
+              'This seat plan does not match with today\'s seat plan, please check again.',
+        );
+      }
+
+      // to update the currect today seat plan and add the claimed data
+      final updatedSeatPlan = _todaySeatPlan!.data().copyWith(
+        claimedDate: DateTime.now(),
+      );
+      await SeatPlanService.updateSeatPlan(_todaySeatPlan!.id, updatedSeatPlan);
+
+      final newSeatClaim = SeatClaim(
+        seatId: updatedSeatPlan.seatId,
+        userId: user.uid,
+        userName: user.displayName ?? 'Guest User',
+        userEmail: user.email ?? '',
+        isPlanned: true,
+        claimedDate: DateTime.now(),
+      );
+      await SeatClaimService.addSeatClaim(newSeatClaim);
+
+      fetchUpcomingSeatPlans();
 
       return ControllerResponse(
         statusCode: ResponseStatusCode.success,
         message: 'Seat plan claimed successfully',
       );
     } catch (e) {
-      print('Error claiming seat plan: $e');
       return ControllerResponse(
         statusCode: ResponseStatusCode.error,
         message: 'Error claiming seat plan: $e',

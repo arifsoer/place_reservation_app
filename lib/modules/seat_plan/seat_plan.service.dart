@@ -13,7 +13,6 @@ final _seatPlanConverter = _seatPlanCollectionRef.withConverter<SeatPlan>(
 class SeatPlanService {
   static Future<void> addSeatPlan(SeatPlan seatPlan) async {
     try {
-      print('Adding new seat plan: $seatPlan');
       await _seatPlanConverter.add(seatPlan);
     } on FirebaseException catch (e) {
       // Handle Firebase-specific errors
@@ -24,6 +23,21 @@ class SeatPlanService {
       debugPrint('Unexpected error: $e');
       debugPrint('Stack trace: $stackTrace');
       throw Exception('Failed to add new seat plan: $e');
+    }
+  }
+
+  static Future<void> updateSeatPlan(String id, SeatPlan seatPlan) async {
+    try {
+      await _seatPlanConverter.doc(id).update(seatPlan.toJson());
+    } on FirebaseException catch (e) {
+      // Handle Firebase-specific errors
+      debugPrint('Firebase error: ${e.message}');
+      rethrow; // Optionally rethrow the error for higher-level handling
+    } catch (e, stackTrace) {
+      // Handle general errors
+      debugPrint('Unexpected error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      throw Exception('Failed to update seat plan: $e');
     }
   }
 

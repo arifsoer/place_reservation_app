@@ -14,3 +14,10 @@ String indexToLetter(int index) {
 String generaQueryParams(Map<String, String> params) {
   return params.entries.map((e) => '${e.key}=${e.value}').join('&');
 }
+
+bool isToday(DateTime date) {
+  final now = DateTime.now();
+  return date.year == now.year &&
+      date.month == now.month &&
+      date.day == now.day;
+}
